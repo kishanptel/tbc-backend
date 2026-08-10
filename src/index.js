@@ -19,7 +19,7 @@ const handler = async (req, res) => {
 
                 if (!adminExist) {
                     await UserModel.create({
-                        name: "BlissCo Admin",
+                        name: "theblissco",
                         email: "admin@theblissco.in",
                         password: "admin123",
                         isAdmin: true,
