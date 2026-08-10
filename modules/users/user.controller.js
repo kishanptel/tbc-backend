@@ -1,3 +1,4 @@
+const mongoose = require("mongoose");
 const UserModel = require("./user.model");
 const cloudinary = require("../../config/cloudinary.js");
 const streamifier = require("streamifier");
