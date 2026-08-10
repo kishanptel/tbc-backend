@@ -1,4 +1,6 @@
+const mongoose = require("mongoose");
 const OrderModel = require("./order.model");
+const UserModel = require("../users/user.model");
 
 const CreateOrder = async (req, res) => {
     try {
@@ -93,23 +95,38 @@ const GetUserOrders = async (req, res) => {
             return res.status(400).json({ success: false, message: "Email or userId parameter is required." });
         }
 
+        let activeUser = null;
+        if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+            activeUser = await UserModel.findById(userId);
+        }
+        if (!activeUser && email) {
+            const cleanEmail = String(email).trim();
+            const safeRegex = new RegExp('^' + cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+            activeUser = await UserModel.findOne({ $or: [{ email: cleanEmail.toLowerCase() }, { email: safeRegex }] });
+        }
+
         const queryConditions = [
             { isUserDeleted: { $ne: true } }
         ];
 
-        if (userId) {
+        // If active user exists, strictly filter out orders created before the active account registration date
+        if (activeUser && activeUser.createdAt) {
+            const registrationTimestamp = new Date(activeUser.createdAt.getTime() - 60000);
             queryConditions.push({
                 $or: [
-                    { userId: userId },
-                    { userEmail: String(email || '').trim().toLowerCase() }
+                    { userId: activeUser._id },
+                    { createdAt: { $gte: registrationTimestamp } }
                 ]
             });
-        } else if (email) {
-            const cleanEmail = String(email).trim();
-            const safeRegex = new RegExp('^' + cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+        }
+
+        const targetEmail = String(email || activeUser?.email || '').trim();
+        if (targetEmail) {
+            const safeRegex = new RegExp('^' + targetEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
             queryConditions.push({
                 $or: [
-                    { userEmail: cleanEmail.toLowerCase() },
+                    { userId: activeUser?._id },
+                    { userEmail: targetEmail.toLowerCase() },
                     { userEmail: safeRegex }
                 ]
             });

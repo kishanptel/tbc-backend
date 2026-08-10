@@ -295,11 +295,15 @@ const DeleteUser = async (req, res) => {
 
         // Mark existing orders of this deleted user account as detached for user view while keeping in DB for admin
         try {
+            const cleanUserEmail = user.email.toLowerCase().trim();
+            const safeEmailRegex = new RegExp('^' + cleanUserEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+
             await OrderModel.updateMany(
                 {
                     $or: [
                         { userId: user._id },
-                        { userEmail: user.email.toLowerCase().trim() }
+                        { userEmail: cleanUserEmail },
+                        { userEmail: safeEmailRegex }
                     ]
                 },
                 { $set: { isUserDeleted: true } }
