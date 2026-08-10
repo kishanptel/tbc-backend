@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const UserModel = require("./user.model");
+const OrderModel = require("../orders/order.model");
 const cloudinary = require("../../config/cloudinary.js");
 const streamifier = require("streamifier");
 const sendWelcomeEmail = require("../../services/sendWelcomeEmail");
@@ -281,16 +282,33 @@ const DeleteUser = async (req, res) => {
         let user = null;
 
         if (identifier.includes('@')) {
-            user = await UserModel.findOneAndDelete({ email: identifier.toLowerCase() });
+            user = await UserModel.findOne({ email: identifier.toLowerCase() });
         } else if (mongoose.Types.ObjectId.isValid(identifier)) {
-            user = await UserModel.findByIdAndDelete(identifier);
+            user = await UserModel.findById(identifier);
         } else {
-            user = await UserModel.findOneAndDelete({ email: identifier.toLowerCase() });
+            user = await UserModel.findOne({ email: identifier.toLowerCase() });
         }
 
         if (!user) {
             return res.status(404).json({ success: false, message: "User account not found or already deleted!" });
         }
+
+        // Mark existing orders of this deleted user account as detached for user view while keeping in DB for admin
+        try {
+            await OrderModel.updateMany(
+                {
+                    $or: [
+                        { userId: user._id },
+                        { userEmail: user.email.toLowerCase().trim() }
+                    ]
+                },
+                { $set: { isUserDeleted: true } }
+            );
+        } catch (orderErr) {
+            console.warn("Order detach warning during account deletion:", orderErr.message);
+        }
+
+        await UserModel.findByIdAndDelete(user._id);
 
         res.status(200).json({
             success: true,

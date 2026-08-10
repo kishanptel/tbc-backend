@@ -1,10 +1,10 @@
-const OrderModel = require("./order.model")
+const OrderModel = require("./order.model");
 
 const CreateOrder = async (req, res) => {
     try {
-        const { userEmail, userName, items, totalPrice } = req.body
+        const { userId, userEmail, userName, items, totalPrice } = req.body;
         if (!userEmail || !userName || !items || !items.length || !totalPrice) {
-            return res.status(400).json({ message: "Invalid order details." })
+            return res.status(400).json({ message: "Invalid order details." });
         }
 
         const normalizedItems = items.map((item, index) => ({
@@ -19,86 +19,104 @@ const CreateOrder = async (req, res) => {
             selectedItems: item.selectedItems || [],
             wrapping: item.wrapping || "",
             ribbon: item.ribbon || ""
-        }))
+        }));
 
         const newOrder = new OrderModel({
+            userId: userId || null,
             userEmail: userEmail.toLowerCase().trim(),
             userName,
             items: normalizedItems,
-            totalPrice
-        })
+            totalPrice,
+            isUserDeleted: false
+        });
 
-        const Data = await newOrder.save()
+        const Data = await newOrder.save();
 
         res.status(201).json({
             success: true,
             message: "Order placed successfully!",
             Data
-        })
+        });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const GetAllOrders = async (req, res) => {
     try {
-        const orders = await OrderModel.find().sort({ createdAt: -1 })
+        const orders = await OrderModel.find().sort({ createdAt: -1 });
         res.status(200).json({
             success: true,
             orders
-        })
+        });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const UpdateOrderStatus = async (req, res) => {
     try {
-        const { id } = req.params
-        const { status } = req.body
+        const { id } = req.params;
+        const { status } = req.body;
         if (!status) {
-            return res.status(400).json({ message: "Status is required." })
+            return res.status(400).json({ message: "Status is required." });
         }
 
-        const order = await OrderModel.findByIdAndUpdate(id, { status }, { new: true })
+        const order = await OrderModel.findByIdAndUpdate(id, { status }, { new: true });
         if (!order) {
-            return res.status(404).json({ message: "Order not found." })
+            return res.status(404).json({ message: "Order not found." });
         }
 
         res.status(200).json({
             success: true,
             message: "Order status updated successfully!",
             order
-        })
+        });
     } catch (error) {
         res.status(500).json({
             success: false,
             message: error.message
-        })
+        });
     }
-}
+};
 
 const GetUserOrders = async (req, res) => {
     try {
-        const { email } = req.query;
-        if (!email) {
-            return res.status(400).json({ success: false, message: "Email parameter is required." });
+        const { email, userId } = req.query;
+        if (!email && !userId) {
+            return res.status(400).json({ success: false, message: "Email or userId parameter is required." });
         }
 
-        const cleanEmail = String(email).trim();
-        const safeRegex = new RegExp('^' + cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+        const queryConditions = [
+            { isUserDeleted: { $ne: true } }
+        ];
+
+        if (userId) {
+            queryConditions.push({
+                $or: [
+                    { userId: userId },
+                    { userEmail: String(email || '').trim().toLowerCase() }
+                ]
+            });
+        } else if (email) {
+            const cleanEmail = String(email).trim();
+            const safeRegex = new RegExp('^' + cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+            queryConditions.push({
+                $or: [
+                    { userEmail: cleanEmail.toLowerCase() },
+                    { userEmail: safeRegex }
+                ]
+            });
+        }
 
         const orders = await OrderModel.find({
-            $or: [
-                { userEmail: cleanEmail.toLowerCase() },
-                { userEmail: safeRegex }
-            ]
+            $and: queryConditions
         }).sort({ createdAt: -1 });
 
         res.status(200).json({
@@ -114,4 +132,4 @@ const GetUserOrders = async (req, res) => {
     }
 };
 
-module.exports = { CreateOrder, GetAllOrders, UpdateOrderStatus, GetUserOrders }
+module.exports = { CreateOrder, GetAllOrders, UpdateOrderStatus, GetUserOrders };

@@ -15,11 +15,13 @@ const OrderItemSchema = new mongoose.Schema({
 }, { _id: false });
 
 const OrderSchema = new mongoose.Schema({
+    userId: { type: mongoose.Schema.Types.Mixed, default: null },
     userEmail: { type: String, required: true },
     userName: { type: String, required: true },
     items: [OrderItemSchema],
     totalPrice: { type: Number, required: true },
-    status: { type: String, default: "Pending" }
+    status: { type: String, default: "Pending" },
+    isUserDeleted: { type: Boolean, default: false }
 }, { versionKey: false, timestamps: true });
 
 const OrderModel = mongoose.model("orders", OrderSchema);
