@@ -49,10 +49,10 @@ const handler = async (req, res) => {
 };
 
 if (require.main === module) {
-    const PORT = process.env.PORT || 5000;
+    const PORT = process.env.PORT || 8080;
     handler().then(() => {
         app.listen(PORT, () => {
-            console.log(`theblissco Backend server listening on http://localhost:${PORT}`);
+            console.log(`theblissco Backend server listening on port ${PORT}`);
         });
     });
 }

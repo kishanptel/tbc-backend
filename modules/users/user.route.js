@@ -13,5 +13,7 @@ route.put("/admin/update", UpdateAdminCredentials)
 route.post("/admin/create", CreateNewAdmin)
 route.get("/all", GetAllUsers)
 route.delete("/delete/:id", DeleteUser)
+route.delete("/:id", DeleteUser)
+route.post("/delete/:id", DeleteUser)
 
 module.exports = route

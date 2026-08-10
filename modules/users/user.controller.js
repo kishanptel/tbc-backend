@@ -121,21 +121,22 @@ const UserLogin = async (req, res) => {
             return res.status(400).json({ success: false, message: "Email and password are required!" });
         }
 
-        const query = { email };
-        if (isAdmin === true) {
-            query.isAdmin = true;
-        } else {
-            query.isAdmin = { $ne: true };
+        const normalizedEmail = String(email).trim().toLowerCase();
+        const isAdminRequest = isAdmin === true || isAdmin === 'true';
+
+        let user = await UserModel.findOne({ email: normalizedEmail });
+
+        if (!user) {
+            return res.status(404).json({ success: false, message: "Invalid email or password!" });
         }
 
-        const user = await UserModel.findOne(query);
-        if (!user) {
-            return res.status(404).json({ success: false, message: "User not found!" });
+        if (isAdminRequest && !user.isAdmin) {
+            return res.status(403).json({ success: false, message: "Access denied. Administrator privileges required." });
         }
 
         const isMatch = await user.comparePassword(password);
         if (!isMatch) {
-            return res.status(401).json({ success: false, message: "Invalid credentials!" });
+            return res.status(401).json({ success: false, message: "Invalid email or password!" });
         }
 
         const token = generateToken(user);
@@ -171,6 +172,7 @@ const UserLogin = async (req, res) => {
             }
         });
     } catch (error) {
+        console.error("UserLogin Error:", error);
         res.status(500).json({
             success: false,
             message: error.message
@@ -270,23 +272,34 @@ const CreateNewAdmin = async (req, res) => {
 const DeleteUser = async (req, res) => {
     try {
         const { id } = req.params;
-        let user;
-        if (id.includes('@')) {
-            user = await UserModel.findOneAndDelete({ email: id.toLowerCase().trim() });
+        if (!id || id === 'undefined' || id === 'null') {
+            return res.status(400).json({ success: false, message: "User ID or Email is required for deletion!" });
+        }
+
+        const identifier = decodeURIComponent(id).trim();
+        let user = null;
+
+        if (identifier.includes('@')) {
+            user = await UserModel.findOneAndDelete({ email: identifier.toLowerCase() });
+        } else if (mongoose.Types.ObjectId.isValid(identifier)) {
+            user = await UserModel.findByIdAndDelete(identifier);
         } else {
-            user = await UserModel.findByIdAndDelete(id);
+            user = await UserModel.findOneAndDelete({ email: identifier.toLowerCase() });
         }
+
         if (!user) {
-            return res.status(404).json({ success: false, message: "User account not found!" });
+            return res.status(404).json({ success: false, message: "User account not found or already deleted!" });
         }
+
         res.status(200).json({
             success: true,
             message: "User account deleted successfully!"
         });
     } catch (error) {
+        console.error("DeleteUser Error:", error);
         res.status(500).json({
             success: false,
-            message: error.message
+            message: error.message || "Failed to delete account."
         });
     }
 };
