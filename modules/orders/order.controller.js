@@ -90,12 +90,23 @@ const GetUserOrders = async (req, res) => {
         if (!email) {
             return res.status(400).json({ success: false, message: "Email parameter is required." });
         }
-        const orders = await OrderModel.find({ userEmail: email.toLowerCase().trim() }).sort({ createdAt: -1 });
+
+        const cleanEmail = String(email).trim();
+        const safeRegex = new RegExp('^' + cleanEmail.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&') + '$', 'i');
+
+        const orders = await OrderModel.find({
+            $or: [
+                { userEmail: cleanEmail.toLowerCase() },
+                { userEmail: safeRegex }
+            ]
+        }).sort({ createdAt: -1 });
+
         res.status(200).json({
             success: true,
-            orders
+            orders: orders || []
         });
     } catch (error) {
+        console.error("GetUserOrders Error:", error);
         res.status(500).json({
             success: false,
             message: error.message
